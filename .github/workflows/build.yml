@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -25,10 +25,11 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build APK Release
-        run: flutter build apk --release --no-pub
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.interactive=false"
+      - name: Build Android APK with Gradle directly
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
