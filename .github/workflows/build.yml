@@ -26,7 +26,7 @@ jobs:
         run: flutter pub get
 
       - name: Build APK Release
-        run: flutter build apk --release --verbose --no-pub
+        run: flutter build apk --release --no-pub
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.interactive=false"
 
