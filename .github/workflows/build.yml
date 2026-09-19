@@ -7,6 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -21,11 +22,14 @@ jobs:
         with:
           channel: 'stable'
 
+      - name: Accept Android SDK Licenses
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Build APK Release
-        run: flutter build apk --release
+        run: flutter build apk --release --no-pub
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
