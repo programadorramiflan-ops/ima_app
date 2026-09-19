@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -26,9 +26,9 @@ jobs:
         run: flutter pub get
 
       - name: Build APK Release
-        run: flutter build apk --release
+        run: flutter build apk --release -v
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs='-Xmx3072m -XX:MaxMetaspaceSize=512m'"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
