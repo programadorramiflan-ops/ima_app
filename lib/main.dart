@@ -115,7 +115,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey',
+        'https://ready-knives-see.loca.lt/generate',
       );
 
       List<Map<String, dynamic>> contents = [];
