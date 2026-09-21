@@ -25,7 +25,7 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Accept Android Licenses
+      - name: Pre-accept Android Licenses
         run: |
           mkdir -p $ANDROID_HOME/licenses
           echo "24544901473d50c7471415a21827103a82110c14" > $ANDROID_HOME/licenses/android-sdk-license
@@ -35,7 +35,9 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --release --no-tree-shake-icons
+        run: flutter build apk --release --no-tree-shake-icons --suppress-analytics
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.jvmargs=\"-Xmx3072m -XX:MaxMetaspaceSize=512m\""
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
