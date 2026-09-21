@@ -20,13 +20,16 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+
+      - name: Accept Android Licenses
+        run: |
+          mkdir -p $ANDROID_HOME/licenses
+          echo "24544901473d50c7471415a21827103a82110c14" > $ANDROID_HOME/licenses/android-sdk-license
+          echo "84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_HOME/licenses/android-sdk-preview-license
 
       - name: Get dependencies
         run: flutter pub get
