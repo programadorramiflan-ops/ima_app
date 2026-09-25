@@ -13,6 +13,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout do Código
@@ -29,6 +30,11 @@ jobs:
         with:
           channel: 'stable'
           cache: true
+
+      - name: Desativar Telemetria e Aceitar Licenças
+        run: |
+          flutter config --no-analytics
+          yes | flutter doctor --android-licenses || true
 
       - name: Instalar Dependências
         run: flutter pub get
