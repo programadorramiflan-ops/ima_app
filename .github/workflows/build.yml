@@ -28,14 +28,16 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Disable Telemetry
-        run: flutter config --no-analytics
+      - name: Accept Android Licenses & Disable Analytics
+        run: |
+          flutter config --no-analytics
+          yes | flutter doctor --android-licenses || true
 
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Build APK (Fast ARM64)
+        run: flutter build apk --release --target-platform android-arm64
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -47,3 +49,4 @@ jobs:
           files: build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
