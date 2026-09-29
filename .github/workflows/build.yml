@@ -11,6 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -28,11 +29,14 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Disable Flutter Telemetry
+        run: flutter config --no-analytics
+
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --no-pub
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -44,4 +48,3 @@ jobs:
           files: build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
