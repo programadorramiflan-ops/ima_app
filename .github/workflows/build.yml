@@ -20,6 +20,13 @@ jobs:
       - name: Checkout do Código
         uses: actions/checkout@v4
 
+      - name: Verificar Estrutura de Diretórios
+        run: |
+          echo "=== Diretório Atual ==="
+          pwd
+          echo "=== Conteúdo da Raiz ==="
+          ls -la
+
       - name: Configurar Java JDK
         uses: actions/setup-java@v4
         with:
@@ -37,19 +44,23 @@ jobs:
           flutter config --no-analytics
           yes | flutter doctor --android-licenses || true
 
-      - name: Instalar Dependências
-        run: flutter pub get
+      - name: Instalar Dependências e Compilar
+        run: |
+          # Procura a pasta que contém o pubspec.yaml
+          PROJECT_DIR=$(find . -maxdepth 2 -name "pubspec.yaml" -exec dirname {} \;)
+          echo "Projeto Flutter encontrado em: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+          
+          flutter pub get
+          flutter build apk --release --target-platform android-arm64
 
-      - name: Compilar APK de Release
-        run: flutter build apk --release --target-platform android-arm64
-
-      - name: Criar Release no GitHub
+      - name: Localizar APK e Criar Release no GitHub
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: Release v1.0.${{ github.run_number }}
           draft: false
           prerelease: false
-          files: build/app/outputs/flutter-apk/app-release.apk
+          files: "**/build/app/outputs/flutter-apk/app-release.apk"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
