@@ -13,32 +13,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    env:
+      GRADLE_OPTS: "-Dorg.gradle.jvmargs='-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError'"
+
     steps:
-      - name: Checkout code
+      - name: Checkout do Código
         uses: actions/checkout@v4
 
-      - name: Set up Java JDK
+      - name: Configurar Java JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Set up Flutter
+      - name: Configurar Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
 
-      - name: Disable Telemetry
-        run: flutter config --no-analytics
+      - name: Desativar Telemetria e Aceitar Licenças
+        run: |
+          flutter config --no-analytics
+          yes | flutter doctor --android-licenses || true
 
-      - name: Install Dependencies
+      - name: Instalar Dependências
         run: flutter pub get
 
-      - name: Build Fast Release APK
-        run: flutter build apk --release --target-platform android-arm64 --no-pub
+      - name: Compilar APK de Release
+        run: flutter build apk --release --target-platform android-arm64
 
-      - name: Create Release
+      - name: Criar Release no GitHub
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
@@ -48,4 +53,3 @@ jobs:
           files: build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
