@@ -27,17 +27,16 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          cache: true
 
-      - name: Accept Android Licenses & Disable Analytics
-        run: |
-          flutter config --no-analytics
-          yes | flutter doctor --android-licenses || true
+      - name: Disable Telemetry
+        run: flutter config --no-analytics
 
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build APK (Fast ARM64)
-        run: flutter build apk --release --target-platform android-arm64
+      - name: Build Fast Release APK
+        run: flutter build apk --release --target-platform android-arm64 --no-pub
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
