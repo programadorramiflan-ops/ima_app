@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:luna_assistant/app_config.dart';
 
 void main() {
@@ -44,6 +46,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isListening = false;
   bool _isLoading = false;
   bool _speakResponse = true;
+  Timer? _silenceTimer;
 
   @override
   void initState() {
@@ -59,34 +62,62 @@ class _ChatScreenState extends State<ChatScreen> {
     await _flutterTts.setSpeechRate(0.5);
   }
 
+  Future<void> _requestMicPermission() async {
+    final status = await Permission.microphone.request();
+    if (!status.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Permissão do microfone é necessária para gravar áudio.')),
+      );
+    }
+  }
+
   void _listen() async {
+    await _requestMicPermission();
+
     if (!_isListening) {
       bool available = await _speech.initialize(
-        onStatus: (val) {
-          if (val == 'done' || val == 'notListening') {
-            setState(() => _isListening = false);
-            if (_controller.text.trim().isNotEmpty) {
-              _sendMessage();
-            }
+        onStatus: (status) {
+          if (status == 'notListening' || status == 'done') {
+            _stopListeningAndSend();
           }
         },
-        onError: (val) => setState(() => _isListening = false),
+        onError: (error) {
+          _stopListeningAndSend();
+        },
       );
 
       if (available) {
         setState(() => _isListening = true);
         _speech.listen(
           localeId: "pt_BR",
+          pauseFor: const Duration(seconds: 3), // Timer de 3 segundos de silêncio
           onResult: (val) {
             setState(() {
               _controller.text = val.recognizedWords;
             });
+            _resetSilenceTimer();
           },
         );
       }
     } else {
-      setState(() => _isListening = false);
+      _stopListeningAndSend();
+    }
+  }
+
+  void _resetSilenceTimer() {
+    _silenceTimer?.cancel();
+    _silenceTimer = Timer(const Duration(seconds: 3), () {
+      if (_isListening) {
+        _stopListeningAndSend();
+      }
+    });
+  }
+
+  void _stopListeningAndSend() {
+    _silenceTimer?.cancel();
+    if (_isListening) {
       _speech.stop();
+      setState(() => _isListening = false);
       if (_controller.text.trim().isNotEmpty) {
         _sendMessage();
       }
@@ -100,6 +131,24 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  String _generateResponse(String userMessage) {
+    final msg = userMessage.toLowerCase().trim();
+
+    if (msg.contains('triste') || msg.contains('chateado') || msg.contains('mal')) {
+      return 'Sinto muito que esteja se sentindo assim. Estou aqui com você. O que aconteceu? Quer conversar sobre isso?';
+    } else if (msg.contains('oi') || msg.contains('olá') || msg.contains('ima')) {
+      return 'Olá! Como posso te ajudar agora?';
+    } else if (msg.contains('bom dia')) {
+      return 'Bom dia! Espero que o seu dia seja produtivo e abençoado.';
+    } else if (msg.contains('boa tarde')) {
+      return 'Boa tarde! Como estão as coisas por aí?';
+    } else if (msg.contains('boa noite')) {
+      return 'Boa noite! Como posso te auxiliar antes de descansar?';
+    } else {
+      return 'Entendi perfeitamente. Estou processando sua solicitação e continuo à disposição!';
+    }
+  }
+
   void _sendMessage() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
@@ -110,11 +159,8 @@ class _ChatScreenState extends State<ChatScreen> {
       _controller.clear();
     });
 
-    Future.delayed(const Duration(seconds: 1), () {
-      final bool hasApiKey = AppConfig.apiKey.isNotEmpty;
-      final responseText = hasApiKey
-          ? 'Olá! Recebi a sua mensagem: "$text". Como posso ajudar mais?'
-          : 'Alerta: Chave de API não detetada.';
+    Future.delayed(const Duration(milliseconds: 600), () {
+      final responseText = _generateResponse(text);
 
       setState(() {
         _messages.add({'sender': 'assistant', 'text': responseText});
@@ -142,7 +188,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 _speakResponse = !_speakResponse;
               });
             },
-            tooltip: 'Alternar resposta por voz',
+            tooltip: 'Alternar voz',
           ),
           const SizedBox(width: 8),
         ],
@@ -202,6 +248,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   icon: Icon(
                     _isListening ? Icons.mic : Icons.mic_none,
                     color: _isListening ? Colors.redAccent : Colors.white,
+                    size: 28,
                   ),
                   onPressed: _listen,
                 ),
@@ -209,7 +256,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: TextField(
                     controller: _controller,
                     decoration: InputDecoration(
-                      hintText: _isListening ? 'A escutar...' : 'Digite ou fale...',
+                      hintText: _isListening ? 'Ouvindo... (fale agora)' : 'Digite ou fale...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
