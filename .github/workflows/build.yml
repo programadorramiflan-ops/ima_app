@@ -37,11 +37,15 @@ jobs:
           flutter config --no-analytics
           yes | flutter doctor --android-licenses || true
 
-      - name: Instalar Dependências e Compilar APK
+      - name: Regenerar Estrutura Android v2 e Compilar APK
         run: |
           PUBSPEC_PATH=$(find . -name "pubspec.yaml" | head -n 1)
           PROJECT_DIR=$(dirname "$PUBSPEC_PATH")
           cd "$PROJECT_DIR"
+
+          # Remove pasta android legada e recria na versao moderna v2
+          rm -rf android
+          flutter create --platforms=android .
 
           flutter pub get
           flutter build apk --release --target lib/main.dart --target-platform android-arm64 --dart-define=API_KEY=${{ secrets.API_KEY }}
