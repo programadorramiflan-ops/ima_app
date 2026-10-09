@@ -20,13 +20,6 @@ jobs:
       - name: Checkout do Código
         uses: actions/checkout@v4
 
-      - name: Localizar Diretório do Projeto
-        id: project-dir
-        run: |
-          PROJECT_DIR=$(find . -maxdepth 2 -name "pubspec.yaml" -exec dirname {} \;)
-          echo "DIR=$PROJECT_DIR" >> $GITHUB_ENV
-          echo "Projeto localizado em: $PROJECT_DIR"
-
       - name: Configurar Java JDK
         uses: actions/setup-java@v5
         with:
@@ -46,7 +39,11 @@ jobs:
 
       - name: Instalar Dependências e Compilar APK
         run: |
-          cd ${{ env.DIR }}
+          # Localiza a diretoria com o pubspec.yaml e entra nela
+          TARGET_DIR=$(find . -name "pubspec.yaml" -not -path "*/.*" -exec dirname {} \; | head -n 1)
+          echo "Projeto Flutter encontrado em: $TARGET_DIR"
+          cd "$TARGET_DIR"
+
           flutter pub get
           flutter build apk --release --target-platform android-arm64 --dart-define=API_KEY=${{ secrets.API_KEY }}
 
