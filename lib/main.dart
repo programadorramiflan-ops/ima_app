@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:luna_assistant/app_config.dart';
 
 void main() {
@@ -35,7 +37,68 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final List<Map<String, String>> _messages = [];
+  
+  late stt.SpeechToText _speech;
+  late FlutterTts _flutterTts;
+  
+  bool _isListening = false;
   bool _isLoading = false;
+  bool _speakResponse = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _speech = stt.SpeechToText();
+    _flutterTts = FlutterTts();
+    _initTts();
+  }
+
+  void _initTts() async {
+    await _flutterTts.setLanguage("pt-BR");
+    await _flutterTts.setPitch(1.0);
+    await _flutterTts.setSpeechRate(0.5);
+  }
+
+  void _listen() async {
+    if (!_isListening) {
+      bool available = await _speech.initialize(
+        onStatus: (val) {
+          if (val == 'done' || val == 'notListening') {
+            setState(() => _isListening = false);
+            if (_controller.text.trim().isNotEmpty) {
+              _sendMessage();
+            }
+          }
+        },
+        onError: (val) => setState(() => _isListening = false),
+      );
+
+      if (available) {
+        setState(() => _isListening = true);
+        _speech.listen(
+          localeId: "pt_BR",
+          onResult: (val) {
+            setState(() {
+              _controller.text = val.recognizedWords;
+            });
+          },
+        );
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
+      if (_controller.text.trim().isNotEmpty) {
+        _sendMessage();
+      }
+    }
+  }
+
+  void _speak(String text) async {
+    if (_speakResponse && text.isNotEmpty) {
+      await _flutterTts.stop();
+      await _flutterTts.speak(text);
+    }
+  }
 
   void _sendMessage() {
     final text = _controller.text.trim();
@@ -47,18 +110,18 @@ class _ChatScreenState extends State<ChatScreen> {
       _controller.clear();
     });
 
-    // Simulação de resposta usando a chave de API injetada
     Future.delayed(const Duration(seconds: 1), () {
+      final bool hasApiKey = AppConfig.apiKey.isNotEmpty;
+      final responseText = hasApiKey
+          ? 'Olá! Recebi a sua mensagem: "$text". Como posso ajudar mais?'
+          : 'Alerta: Chave de API não detetada.';
+
       setState(() {
-        final bool hasApiKey = AppConfig.apiKey.isNotEmpty;
-        _messages.add({
-          'sender': 'assistant',
-          'text': hasApiKey
-              ? 'Recebido! A IMA está pronta e a API Key está ativa.'
-              : 'Alerta: Nenhuma API Key detetada nas configurações.',
-        });
+        _messages.add({'sender': 'assistant', 'text': responseText});
         _isLoading = false;
       });
+
+      _speak(responseText);
     });
   }
 
@@ -69,11 +132,19 @@ class _ChatScreenState extends State<ChatScreen> {
         title: const Text('IMA - Inteligência Multifuncional'),
         centerTitle: true,
         actions: [
-          Icon(
-            AppConfig.apiKey.isNotEmpty ? Icons.key : Icons.key_off,
-            color: AppConfig.apiKey.isNotEmpty ? Colors.greenAccent : Colors.redAccent,
+          IconButton(
+            icon: Icon(
+              _speakResponse ? Icons.volume_up : Icons.volume_off,
+              color: _speakResponse ? Colors.greenAccent : Colors.grey,
+            ),
+            onPressed: () {
+              setState(() {
+                _speakResponse = !_speakResponse;
+              });
+            },
+            tooltip: 'Alternar resposta por voz',
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(
@@ -87,7 +158,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         Icon(Icons.smart_toy, size: 64, color: Colors.deepPurpleAccent),
                         SizedBox(height: 16),
                         Text(
-                          'Como posso ajudar hoje?',
+                          'Toque no microfone e fale!',
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                       ],
@@ -127,11 +198,18 @@ class _ChatScreenState extends State<ChatScreen> {
             color: Colors.grey[900],
             child: Row(
               children: [
+                IconButton(
+                  icon: Icon(
+                    _isListening ? Icons.mic : Icons.mic_none,
+                    color: _isListening ? Colors.redAccent : Colors.white,
+                  ),
+                  onPressed: _listen,
+                ),
                 Expanded(
                   child: TextField(
                     controller: _controller,
                     decoration: InputDecoration(
-                      hintText: 'Digite uma mensagem...',
+                      hintText: _isListening ? 'A escutar...' : 'Digite ou fale...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
