@@ -39,17 +39,12 @@ jobs:
 
       - name: Instalar Dependências e Compilar APK
         run: |
-          # Procura a pasta do pubspec.yaml em todo o repositorio
           PUBSPEC_PATH=$(find . -name "pubspec.yaml" | head -n 1)
           PROJECT_DIR=$(dirname "$PUBSPEC_PATH")
-          
-          echo "Caminho do pubspec: $PUBSPEC_PATH"
-          echo "Entrando na pasta: $PROJECT_DIR"
-          
           cd "$PROJECT_DIR"
 
           flutter pub get
-          flutter build apk --release --target-platform android-arm64 --dart-define=API_KEY=${{ secrets.API_KEY }}
+          flutter build apk --release --target lib/main.dart --target-platform android-arm64 --dart-define=API_KEY=${{ secrets.API_KEY }}
 
       - name: Criar Release no GitHub
         uses: softprops/action-gh-release@v2
