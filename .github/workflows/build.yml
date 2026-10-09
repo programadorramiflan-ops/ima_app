@@ -39,10 +39,14 @@ jobs:
 
       - name: Instalar Dependências e Compilar APK
         run: |
-          # Localiza a diretoria com o pubspec.yaml e entra nela
-          TARGET_DIR=$(find . -name "pubspec.yaml" -not -path "*/.*" -exec dirname {} \; | head -n 1)
-          echo "Projeto Flutter encontrado em: $TARGET_DIR"
-          cd "$TARGET_DIR"
+          # Procura a pasta do pubspec.yaml em todo o repositorio
+          PUBSPEC_PATH=$(find . -name "pubspec.yaml" | head -n 1)
+          PROJECT_DIR=$(dirname "$PUBSPEC_PATH")
+          
+          echo "Caminho do pubspec: $PUBSPEC_PATH"
+          echo "Entrando na pasta: $PROJECT_DIR"
+          
+          cd "$PROJECT_DIR"
 
           flutter pub get
           flutter build apk --release --target-platform android-arm64 --dart-define=API_KEY=${{ secrets.API_KEY }}
