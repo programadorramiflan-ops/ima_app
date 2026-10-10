@@ -144,57 +144,47 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // Requisição real à API do Gemini
   Future<String> _fetchGeminiResponse(String prompt) async {
-    if (AppConfig.apiKey.isEmpty) {
-      return "Chave de API não foi configurada no build.";
+    final apiKey = AppConfig.apiKey.trim();
+    if (apiKey.isEmpty) {
+      return "Erro: Chave de API (API_KEY) não foi injetada no build.";
     }
 
     final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${AppConfig.apiKey}',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey',
     );
 
-    // Constrói o histórico da conversa para o Gemini manter o contexto
-    final contents = _messages.map((m) {
-      final role = m['sender'] == 'user' ? 'user' : 'model';
-      return {
-        'role': role,
-        'parts': [{'text': m['text'] ?? ''}]
-      };
-    }).toList();
-
-    // Adiciona a mensagem atual
-    contents.add({
-      'role': 'user',
-      'parts': [{'text': prompt}]
-    });
+    // Prompt do sistema embutido na requisição para respostas amigáveis e curtas
+    final String fullPrompt = 
+        "Você é a IMA (Inteligência Multifuncional), uma assistente virtual empática, amigável e conversacional. "
+        "Responda de forma direta e natural em português para a seguinte mensagem do usuário: $prompt";
 
     try {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'system_instruction': {
-            'parts': [
-              {
-                'text':
-                    'Você é a IMA (Inteligência Multifuncional), uma assistente virtual empática, amigável, direta e conversacional. Responda de forma natural, acolhedora e sucinta (ideal para ser lida em voz alta).'
-              }
-            ]
-          },
-          'contents': contents,
+          'contents': [
+            {
+              'parts': [
+                {'text': fullPrompt}
+              ]
+            }
+          ]
         }),
-      );
+      ).timeout(const Duration(seconds: 12));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final reply = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
-        return reply ?? "Não consegui gerar uma resposta no momento.";
+        final String? reply = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        return reply ?? "Não consegui obter uma resposta válida.";
       } else {
-        return "Desculpe, ocorreu um erro ao consultar a IA (${response.statusCode}).";
+        final errorData = jsonDecode(response.body);
+        final errorMsg = errorData['error']?['message'] ?? 'Erro desconhecido';
+        return "Erro da API (${response.statusCode}): $errorMsg";
       }
     } catch (e) {
-      return "Erro de conexão ao comunicar com a IMA.";
+      return "Erro de conexão: $e";
     }
   }
 
@@ -335,4 +325,3 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
-
