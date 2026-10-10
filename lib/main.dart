@@ -147,8 +147,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<String> _fetchGeminiResponse(String prompt) async {
     final apiKey = AppConfig.apiKey.trim();
+    
+    // Diagnóstico se a chave estiver vazia
     if (apiKey.isEmpty) {
-      return "Erro: Chave de API não configurada.";
+      return "Erro de Configuração: A chave de API (API_KEY) está vazia no app. Verifique se o GitHub Secret está configurado corretamente na Action.";
     }
 
     final url = Uri.parse(
@@ -172,21 +174,21 @@ class _ChatScreenState extends State<ChatScreen> {
             }
           ]
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final String? reply = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
         return reply ?? "Não consegui obter uma resposta válida.";
       } else {
-        return "Erro temporário no servidor (${response.statusCode}). Tente novamente.";
+        return "Erro da API (${response.statusCode}): Servidor recusou a chave ou o pedido.";
       }
     } on SocketException {
-      return "Erro de conexão: Verifique se o seu telemóvel está com internet ativa, Wi-Fi ligado ou dados móveis funcionando.";
+      return "Erro de Rede (SocketException): O telemóvel tem internet, mas o Android bloqueou a resolução de DNS para o Google.";
     } on TimeoutException {
-      return "A conexão com a IMA demorou muito tempo. Tente novamente.";
+      return "A conexão com a IMA demorou muito tempo esgotando o limite.";
     } catch (e) {
-      return "Não foi possível conectar aos servidores da IA no momento.";
+      return "Erro inesperado: $e";
     }
   }
 
