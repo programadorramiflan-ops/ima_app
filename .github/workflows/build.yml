@@ -29,8 +29,12 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Instalar Dependências e Compilar APK
+      - name: Regenerar Android v2 e Compilar APK
         run: |
+          # Remove a pasta android antiga para evitar conflito de v1 embedding
+          rm -rf android
+          flutter create --platforms=android .
+
           flutter pub get
           flutter build apk --release --dart-define=API_KEY=${{ secrets.GEMINI_API_KEY }}
 
