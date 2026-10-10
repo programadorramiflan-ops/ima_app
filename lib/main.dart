@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -79,7 +80,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!micStatus.isGranted) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Permissão do microfone é obrigatória para usar a voz.')),
+            const SnackBar(content: Text('A permissão do microfone é obrigatória para usar a voz.')),
           );
         }
         return;
@@ -147,17 +148,16 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<String> _fetchGeminiResponse(String prompt) async {
     final apiKey = AppConfig.apiKey.trim();
     if (apiKey.isEmpty) {
-      return "Erro: Chave de API (API_KEY) não foi injetada no build.";
+      return "Erro: Chave de API não configurada.";
     }
 
     final url = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey',
     );
 
-    // Prompt do sistema embutido na requisição para respostas amigáveis e curtas
     final String fullPrompt = 
         "Você é a IMA (Inteligência Multifuncional), uma assistente virtual empática, amigável e conversacional. "
-        "Responda de forma direta e natural em português para a seguinte mensagem do usuário: $prompt";
+        "Responda de forma direta, natural e acolhedora em português para: $prompt";
 
     try {
       final response = await http.post(
@@ -172,19 +172,21 @@ class _ChatScreenState extends State<ChatScreen> {
             }
           ]
         }),
-      ).timeout(const Duration(seconds: 12));
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final String? reply = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
         return reply ?? "Não consegui obter uma resposta válida.";
       } else {
-        final errorData = jsonDecode(response.body);
-        final errorMsg = errorData['error']?['message'] ?? 'Erro desconhecido';
-        return "Erro da API (${response.statusCode}): $errorMsg";
+        return "Erro temporário no servidor (${response.statusCode}). Tente novamente.";
       }
+    } on SocketException {
+      return "Erro de conexão: Verifique se o seu telemóvel está com internet ativa, Wi-Fi ligado ou dados móveis funcionando.";
+    } on TimeoutException {
+      return "A conexão com a IMA demorou muito tempo. Tente novamente.";
     } catch (e) {
-      return "Erro de conexão: $e";
+      return "Não foi possível conectar aos servidores da IA no momento.";
     }
   }
 
