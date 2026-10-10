@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
 import 'package:luna_assistant/app_config.dart';
 
 void main() {
@@ -54,6 +56,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _speech = stt.SpeechToText();
     _flutterTts = FlutterTts();
     _initTts();
+    _requestPermissionsOnStart();
   }
 
   void _initTts() async {
@@ -62,19 +65,26 @@ class _ChatScreenState extends State<ChatScreen> {
     await _flutterTts.setSpeechRate(0.5);
   }
 
-  Future<void> _requestMicPermission() async {
-    final status = await Permission.microphone.request();
-    if (!status.isGranted) {
-      if(mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permissão do microfone é necessária para gravar áudio.')),
-        );
-      }
-    }
+  Future<void> _requestPermissionsOnStart() async {
+    await [
+      Permission.microphone,
+      Permission.camera,
+    ].request();
   }
 
   void _listen() async {
-    await _requestMicPermission();
+    var micStatus = await Permission.microphone.status;
+    if (!micStatus.isGranted) {
+      micStatus = await Permission.microphone.request();
+      if (!micStatus.isGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permissão do microfone é obrigatória para usar a voz.')),
+          );
+        }
+        return;
+      }
+    }
 
     if (!_isListening) {
       bool available = await _speech.initialize(
@@ -118,7 +128,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _silenceTimer?.cancel();
     if (_isListening) {
       _speech.stop();
-      if(mounted) {
+      if (mounted) {
         setState(() => _isListening = false);
       }
       if (_controller.text.trim().isNotEmpty) {
@@ -134,25 +144,61 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  String _generateResponse(String userMessage) {
-    final msg = userMessage.toLowerCase().trim();
+  // Requisição real à API do Gemini
+  Future<String> _fetchGeminiResponse(String prompt) async {
+    if (AppConfig.apiKey.isEmpty) {
+      return "Chave de API não foi configurada no build.";
+    }
 
-    if (msg.contains('triste') || msg.contains('chateado') || msg.contains('mal')) {
-      return 'Sinto muito que esteja se sentindo assim. Estou aqui com você. O que aconteceu? Quer conversar sobre isso?';
-    } else if (msg.contains('oi') || msg.contains('olá') || msg.contains('ima')) {
-      return 'Olá! Como posso te ajudar agora?';
-    } else if (msg.contains('bom dia')) {
-      return 'Bom dia! Espero que o seu dia seja produtivo e abençoado.';
-    } else if (msg.contains('boa tarde')) {
-      return 'Boa tarde! Como estão as coisas por aí?';
-    } else if (msg.contains('boa noite')) {
-      return 'Boa noite! Como posso te auxiliar antes de descansar?';
-    } else {
-      return 'Entendi perfeitamente. Estou processando sua solicitação e continuo à disposição!';
+    final url = Uri.parse(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${AppConfig.apiKey}',
+    );
+
+    // Constrói o histórico da conversa para o Gemini manter o contexto
+    final contents = _messages.map((m) {
+      final role = m['sender'] == 'user' ? 'user' : 'model';
+      return {
+        'role': role,
+        'parts': [{'text': m['text'] ?? ''}]
+      };
+    }).toList();
+
+    // Adiciona a mensagem atual
+    contents.add({
+      'role': 'user',
+      'parts': [{'text': prompt}]
+    });
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'system_instruction': {
+            'parts': [
+              {
+                'text':
+                    'Você é a IMA (Inteligência Multifuncional), uma assistente virtual empática, amigável, direta e conversacional. Responda de forma natural, acolhedora e sucinta (ideal para ser lida em voz alta).'
+              }
+            ]
+          },
+          'contents': contents,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final reply = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        return reply ?? "Não consegui gerar uma resposta no momento.";
+      } else {
+        return "Desculpe, ocorreu um erro ao consultar a IA (${response.statusCode}).";
+      }
+    } catch (e) {
+      return "Erro de conexão ao comunicar com a IMA.";
     }
   }
 
-  void _sendMessage() {
+  void _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
@@ -162,26 +208,23 @@ class _ChatScreenState extends State<ChatScreen> {
       _controller.clear();
     });
 
-    Future.delayed(const Duration(milliseconds: 600), () {
-      final responseText = _generateResponse(text);
+    final responseText = await _fetchGeminiResponse(text);
 
-      if(mounted) {
-        setState(() {
-          _messages.add({'sender': 'assistant', 'text': responseText});
-          _isLoading = false;
-        });
-      }
+    if (mounted) {
+      setState(() {
+        _messages.add({'sender': 'assistant', 'text': responseText});
+        _isLoading = false;
+      });
+    }
 
-      _speak(responseText);
-    });
+    _speak(responseText);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Scaffold com SafeArea para encaixar em todos os celulares
     return SafeArea(
-      top: false, // Deixa a AppBar encostar no topo (é o padrão visual)
-      bottom: true, // Adiciona espaço seguro na parte inferior (resolve o erro)
+      top: false,
+      bottom: true,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('IMA - Inteligência Multifuncional'),
@@ -252,9 +295,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 padding: EdgeInsets.all(8.0),
                 child: CircularProgressIndicator(),
               ),
-            // Barra de entrada com Padding extra na base
             Container(
-              padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 16.0), // Padding inferior maior (16.0)
+              padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 16.0),
               color: Colors.grey[900],
               child: Row(
                 children: [
@@ -293,3 +335,4 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
+
