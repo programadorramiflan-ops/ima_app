@@ -2,8 +2,8 @@ name: Build Flutter Release APK
 
 on:
   push:
-  branches:
-    - main
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -12,9 +12,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
-    env:
-      GRADLE_OPTS: "-Dorg.gradle.jvmargs='-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError'"
 
     steps:
       - name: Checkout do Código
@@ -32,23 +29,10 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Desativar Telemetria e Aceitar Licenças
+      - name: Instalar Dependências e Compilar APK
         run: |
-          flutter config --no-analytics
-          yes | flutter doctor --android-licenses || true
-
-      - name: Regenerar Estrutura Android v2 e Compilar APK
-        run: |
-          PUBSPEC_PATH=$(find . -name "pubspec.yaml" | head -n 1)
-          PROJECT_DIR=$(dirname "$PUBSPEC_PATH")
-          cd "$PROJECT_DIR"
-
-          # Remove pasta android legada e recria na versao moderna v2
-          rm -rf android
-          flutter create --platforms=android .
-
           flutter pub get
-          flutter build apk --release --target lib/main.dart --target-platform android-arm64 --dart-define=API_KEY=${{ secrets.GEMINI_API_KEY }}
+          flutter build apk --release --dart-define=API_KEY=${{ secrets.GEMINI_API_KEY }}
 
       - name: Criar Release no GitHub
         uses: softprops/action-gh-release@v2
@@ -57,6 +41,6 @@ jobs:
           name: Release v1.0.${{ github.run_number }}
           draft: false
           prerelease: false
-          files: "**/build/app/outputs/flutter-apk/app-release.apk"
+          files: "build/app/outputs/flutter-apk/app-release.apk"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
