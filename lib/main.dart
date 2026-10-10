@@ -65,9 +65,11 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _requestMicPermission() async {
     final status = await Permission.microphone.request();
     if (!status.isGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permissão do microfone é necessária para gravar áudio.')),
-      );
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permissão do microfone é necessária para gravar áudio.')),
+        );
+      }
     }
   }
 
@@ -90,7 +92,6 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() => _isListening = true);
         _speech.listen(
           localeId: "pt_BR",
-          pauseFor: const Duration(seconds: 3), // Timer de 3 segundos de silêncio
           onResult: (val) {
             setState(() {
               _controller.text = val.recognizedWords;
@@ -117,7 +118,9 @@ class _ChatScreenState extends State<ChatScreen> {
     _silenceTimer?.cancel();
     if (_isListening) {
       _speech.stop();
-      setState(() => _isListening = false);
+      if(mounted) {
+        setState(() => _isListening = false);
+      }
       if (_controller.text.trim().isNotEmpty) {
         _sendMessage();
       }
@@ -162,10 +165,12 @@ class _ChatScreenState extends State<ChatScreen> {
     Future.delayed(const Duration(milliseconds: 600), () {
       final responseText = _generateResponse(text);
 
-      setState(() {
-        _messages.add({'sender': 'assistant', 'text': responseText});
-        _isLoading = false;
-      });
+      if(mounted) {
+        setState(() {
+          _messages.add({'sender': 'assistant', 'text': responseText});
+          _isLoading = false;
+        });
+      }
 
       _speak(responseText);
     });
@@ -173,107 +178,117 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('IMA - Inteligência Multifuncional'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(
-              _speakResponse ? Icons.volume_up : Icons.volume_off,
-              color: _speakResponse ? Colors.greenAccent : Colors.grey,
+    // Scaffold com SafeArea para encaixar em todos os celulares
+    return SafeArea(
+      top: false, // Deixa a AppBar encostar no topo (é o padrão visual)
+      bottom: true, // Adiciona espaço seguro na parte inferior (resolve o erro)
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('IMA - Inteligência Multifuncional'),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: Icon(
+                _speakResponse ? Icons.volume_up : Icons.volume_off,
+                color: _speakResponse ? Colors.greenAccent : Colors.grey,
+              ),
+              onPressed: () {
+                setState(() {
+                  _speakResponse = !_speakResponse;
+                });
+              },
+              tooltip: 'Alternar voz',
             ),
-            onPressed: () {
-              setState(() {
-                _speakResponse = !_speakResponse;
-              });
-            },
-            tooltip: 'Alternar voz',
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _messages.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.smart_toy, size: 64, color: Colors.deepPurpleAccent),
-                        SizedBox(height: 16),
-                        Text(
-                          'Toque no microfone e fale!',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: _messages.isEmpty
+                  ? Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.smart_toy, size: 64, color: Colors.deepPurpleAccent),
+                            SizedBox(height: 16),
+                            Text(
+                              'Toque no microfone e fale!',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = _messages[index];
-                      final isUser = msg['sender'] == 'user';
-                      return Align(
-                        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isUser ? Colors.deepPurple : Colors.grey[800],
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            msg['text'] ?? '',
-                            style: const TextStyle(color: Colors.white, fontSize: 16),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: CircularProgressIndicator(),
-            ),
-          Container(
-            padding: const EdgeInsets.all(8.0),
-            color: Colors.grey[900],
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    _isListening ? Icons.mic : Icons.mic_none,
-                    color: _isListening ? Colors.redAccent : Colors.white,
-                    size: 28,
-                  ),
-                  onPressed: _listen,
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: InputDecoration(
-                      hintText: _isListening ? 'Ouvindo... (fale agora)' : 'Digite ou fale...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final msg = _messages[index];
+                        final isUser = msg['sender'] == 'user';
+                        return Align(
+                          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isUser ? Colors.deepPurple : Colors.grey[800],
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              msg['text'] ?? '',
+                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    onSubmitted: (_) => _sendMessage(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: _sendMessage,
-                  icon: const Icon(Icons.send),
-                ),
-              ],
             ),
-          ),
-        ],
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: CircularProgressIndicator(),
+              ),
+            // Barra de entrada com Padding extra na base
+            Container(
+              padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 16.0), // Padding inferior maior (16.0)
+              color: Colors.grey[900],
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _isListening ? Icons.mic : Icons.mic_none,
+                      color: _isListening ? Colors.redAccent : Colors.white,
+                      size: 28,
+                    ),
+                    onPressed: _listen,
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      decoration: InputDecoration(
+                        hintText: _isListening ? 'Ouvindo... (fale agora)' : 'Digite ou fale...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      onSubmitted: (_) => _sendMessage(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: _sendMessage,
+                    icon: const Icon(Icons.send),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
