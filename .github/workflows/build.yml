@@ -2,8 +2,8 @@ name: Build Flutter Release APK
 
 on:
   push:
-    branches:
-      - main
+  branches:
+    - main
 
 permissions:
   contents: write
@@ -48,7 +48,7 @@ jobs:
           flutter create --platforms=android .
 
           flutter pub get
-          flutter build apk --release --target lib/main.dart --target-platform android-arm64 --dart-define=API_KEY=${{ secrets.API_KEY }}
+          flutter build apk --release --target lib/main.dart --target-platform android-arm64 --dart-define=API_KEY=${{ secrets.GEMINI_API_KEY }}
 
       - name: Criar Release no GitHub
         uses: softprops/action-gh-release@v2
