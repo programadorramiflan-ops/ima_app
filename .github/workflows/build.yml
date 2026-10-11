@@ -29,8 +29,12 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Compilar APK
+      - name: Regenerar Android v2 e Compilar APK
         run: |
+          # Remove a pasta android legada e recria na versao moderna v2
+          rm -rf android
+          flutter create --platforms=android .
+
           flutter pub get
           flutter build apk --release
 
