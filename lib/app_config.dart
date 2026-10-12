@@ -1,3 +1,3 @@
 class AppConfig {
-  static const String apiKey = "AQ.Ab8RN6LapdVtoxnjmPxShy6kIuxAWvD3zdOh2dT-YXtLPV9Lxw";
+  static const String apiKey = String.fromEnvironment('API_KEY');
 }
